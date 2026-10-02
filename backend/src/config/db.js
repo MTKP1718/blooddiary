@@ -3,15 +3,22 @@ const path = require('path');
 const fs = require('fs');
 const { initialAdmins, initialDonors, initialDonations } = require('../utils/seedData');
 
+const os = require('os');
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
+const dataDir = isServerless ? os.tmpdir() : path.join(__dirname, '..', 'data');
+const fallbackFilePath = path.join(dataDir, 'bloodconnect_db_store.json');
+
 let pool = null;
 let dbMode = 'mysql'; // 'mysql' or 'fallback'
 let fallbackData = null;
-const fallbackFilePath = path.join(__dirname, '..', 'data', 'db_store.json');
 
-// Ensure data folder exists
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Ensure data folder exists safely without throwing on read-only filesystems
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+} catch (e) {
+  // Read-only filesystem warning - safe to ignore in serverless environments
 }
 
 function loadFallbackData() {
@@ -39,16 +46,28 @@ function loadFallbackData() {
 
 function saveFallbackData() {
   if (fallbackData) {
-    fs.writeFileSync(fallbackFilePath, JSON.stringify(fallbackData, null, 2), 'utf8');
+    try {
+      fs.writeFileSync(fallbackFilePath, JSON.stringify(fallbackData, null, 2), 'utf8');
+    } catch (e) {
+      // In serverless environments, writing to disk may be restricted
+    }
   }
 }
 
 async function initDb() {
-  const host = process.env.DB_HOST || '127.0.0.1';
+  const host = process.env.DB_HOST || (isServerless ? null : '127.0.0.1');
   const port = parseInt(process.env.DB_PORT || '3306', 10);
   const user = process.env.DB_USER || 'root';
   const password = process.env.DB_PASSWORD || '';
   const database = process.env.DB_NAME || 'bloodconnect_db';
+
+  // In Vercel serverless without an external database configured, activate instant fallback driver
+  if (isServerless && (!process.env.DB_HOST || host === '127.0.0.1' || host === 'localhost')) {
+    console.log('[Database Mode] Vercel serverless environment active. Using in-memory persistence driver.');
+    dbMode = 'fallback';
+    loadFallbackData();
+    return;
+  }
 
   console.log(`[Database] Attempting MySQL connection to ${user}@${host}:${port}...`);
 
