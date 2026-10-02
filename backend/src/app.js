@@ -48,6 +48,39 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Root API Welcome endpoints
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ONLINE',
+    system: 'BloodConnect REST API',
+    message: 'BloodConnect Backend REST API is running successfully.',
+    endpoints: {
+      health: '/api/health',
+      donor_login: 'POST /api/auth/login',
+      donor_register: 'POST /api/auth/register',
+      admin_login: 'POST /api/admin/login',
+      admin_stats: 'GET /api/admin/stats',
+      donors_list: 'GET /api/admin/donors',
+      registration_requests: 'GET /api/admin/registrations'
+    }
+  });
+});
+
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ONLINE',
+    system: 'BloodConnect REST API',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      donors: '/api/donors',
+      admin: '/api/admin'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({

@@ -1,5 +1,4 @@
 {
-  "version": 2,
   "buildCommand": "node build-monorepo.js",
   "outputDirectory": "dist",
   "functions": {
